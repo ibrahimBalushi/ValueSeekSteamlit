@@ -4,7 +4,9 @@
 
 import numpy as np
 import dask.dataframe as dd
+import pandas as pd
 import streamlit as st
+from datetime import datetime, timedelta
 
 from valueSeek.config import *
 from valueSeek.api import *
@@ -33,7 +35,7 @@ st.write("## Company Profile Selection")
 # ============================================================
 
 # List of all sectors
-SECTORS = securityMaster['sector'].dropna().unique().tolist()
+sector_list = securityMaster['sector'].dropna().unique().tolist()
 
 # Default sectors pre-selected
 DEFAULT_SECTORS = [
@@ -46,9 +48,7 @@ def sectors_to_str(sector_list):
 
 # Initialize session state for sectors input
 if "sectors_input" not in st.session_state:
-    st.session_state.sectors_input = st.query_params.get(
-        "stocks", sectors_to_str(DEFAULT_SECTORS)
-    ).split(",")
+    st.session_state.sectors_input = list(DEFAULT_SECTORS)
 
 # Layout columns for sector selection
 cols = st.columns([5, 1])
@@ -58,9 +58,9 @@ top_left_cell = cols[0].container(
 
 with top_left_cell:
     # Multi-select box for sector filtering
-    tickers = st.multiselect(
+    SECTORS = st.multiselect(
         "Sector to filter",
-        options=sorted(set(SECTORS) | set(st.session_state.sectors_input)),
+        options=sorted(set(sector_list) | set(st.session_state.sectors_input)),
         default=st.session_state.sectors_input,
         placeholder="Choose sectors to include in your search",
         accept_new_options=True,
@@ -77,6 +77,11 @@ horizon_map = {
     "10 Years": "10y",
 }
 
+# initialize session state for time horizon
+if "horizon" not in st.session_state:
+    st.session_state.horizon = "5 Years"
+
+
 with top_left_cell:
     # Pills selector for time horizon
     horizon = st.pills(
@@ -92,7 +97,7 @@ with top_left_cell:
 st.write("## Metric Rule Builder")
 
 # Available metrics
-METRICS = ["ROE", "Revenue Growth", "PE Ratio", "Free Cash Flow"]
+METRICS = ["revenueGrowth","quickRatio"]
 
 # Calculation mapping
 CALC_MAP = {
@@ -103,7 +108,7 @@ CALC_MAP = {
 }
 
 # Comparison operators
-COMPARISONS = [">=", "<=", ">", "<"]
+COMPARISONS = ["<=", ">=", "<", ">", "=="]
 
 # Initialize session state for rules
 if "rules" not in st.session_state:
@@ -160,13 +165,16 @@ for i, rule in enumerate(st.session_state.rules):
         )
 
     # Threshold slider
+    min_val = -1.0
+    max_val = 1.0
+    step_val = 0.05
     with col4:
         rule["threshold"] = st.slider(
             "Threshold",
-            min_value=-100.0,
-            max_value=100.0,
+            min_value=min_val,
+            max_value=max_val,
             value=float(rule["threshold"]),
-            step=0.5,
+            step=step_val,
             key=f"threshold_{i}"
         )
 
@@ -201,8 +209,74 @@ def collect_user_rules(rules):
 st.session_state.user_rules = collect_user_rules(st.session_state.rules)
 
 # ============================================================
-# DEBUG: SHOW COLLECTED RULES
+# DATA LOADING & AGGREGATION
 # ============================================================
 
-st.subheader("Collected Rules Variable")
+st.write("## Financial Data Analysis")
+
+def get_date_range(horizon_name):
+    """Convert horizon selection to START_DATE and END_DATE."""
+    end_date = datetime.now()
+    horizon_days = {
+        "1 Year": 365,
+        "3 Years": 365 * 3,
+        "5 Years": 365 * 5,
+        "10 Years": 365 * 10,
+    }
+    start_date = end_date - timedelta(days=horizon_days.get(horizon_name, 365 * 5))
+    return start_date, end_date
+
+# Resolve tickers from selected sectors
+tickers_ls = securityMaster[securityMaster["sector"].isin(SECTORS)].index.tolist()
+
+# Compute date range from selected horizon
+START_DATE, END_DATE = get_date_range(horizon)
+
+# Build aggregation mapping based on user rules
+METRIC_AGG = {}
+for rule in st.session_state.user_rules:
+    metric_name = rule["metric"].replace(" ", "_").lower()
+    calc_name = [k for k, v in CALC_MAP.items() if v == rule["function"]][0]
+    agg_key = f"{metric_name}_{calc_name}"
+    METRIC_AGG[agg_key] = (metric_name, rule["function"])
+
+st.write("**Data Selection:**")
+st.write(f"- Tickers: {len(tickers_ls)} companies selected")
+st.write(f"- Date Range: {START_DATE.date()} to {END_DATE.date()}")
+st.write(f"- Aggregations: {list(METRIC_AGG.keys())}")
+
+if tickers_ls and st.session_state.user_rules:
+    st.write("Loading financial data...")
+    try:
+        ddf = dd.read_parquet(
+            path=f"{FUNDMTL_DB_DIR}/annual/",
+            filters=[
+                ("symbol", "in", tickers_ls),
+                ("filingDate", ">=", pd.Timestamp(START_DATE)),
+                ("filingDate", "<=", pd.Timestamp(END_DATE)),
+            ],
+            engine="pyarrow",
+        )
+
+        st.write("### Debug: Available Columns")
+        st.write(list(ddf.columns))
+
+        ddf_agg = ddf.groupby("symbol").agg(**METRIC_AGG)
+        df = ddf_agg.compute()
+
+        st.success("Data loaded successfully!")
+        st.write("### Aggregated Results")
+        st.dataframe(df, use_container_width=True)
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+else:
+    st.info("Select sectors and add rules to load data")
+
+
+# ---------------------------------------------------
+# DEBUG: Show consolidated variable
+# ---------------------------------------------------
+st.subheader("DEBUG ZONE: Collected Rules Variable")
+st.json(st.session_state.sectors_input)
+st.json({"horizon": st.session_state.horizon})
 st.json(st.session_state.user_rules)
