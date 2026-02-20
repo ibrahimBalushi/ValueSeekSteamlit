@@ -17,8 +17,8 @@ from valueSeek.processor import *
 # ============================================================
 
 st.write("""
-# ValueSeek
-A Data-Driven Approach to Identifying Investment Opportunities in the Stock Market
+# ValueSeek Fundamentals Company Screener
+Begin by selecting company profiles based on market cap and sector, then build custom metric rules to filter for companies that meet your investment criteria.
 """)
 
 # ============================================================
