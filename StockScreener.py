@@ -22,32 +22,31 @@ Begin by selecting company profiles based on market cap and sector, then build c
 """)
 
 # ============================================================
-# LOAD DATA
+# LOAD SECURITY MASTER FOR COMPANY DATA
 # ============================================================
 
 # Get the security master (company data)
 securityMaster = get_security_master()
 
+# ============================================================
+# MARKETCAP, SECTOR, AND HORIZON SELECTION
+# ============================================================
+
 st.write("## Company Profile Selection")
-# Allow users to filter by market cap, sector, and time horizon
 
 # Helper function to convert list of sectors to a comma-separated string
 def list_to_str(item_list):
     return ",".join(item_list)
 
-
+# Create a container for the top row of inputs (market cap, sector, horizon)
 top_left_cell = st.container(border=True)
 
-# ============================================================
+
 # MARKETCAP SELECTION
-# ============================================================
-
-# Ordered market cap options (UI labels)
-MCAP_OPTIONS = ["micro", "small", "med", "large", "mega"]
+# ===================
+MCAP_OPTIONS       = ["micro", "small", "med", "large", "mega"]
 MCAP_TO_DATA_VALUE = {"med": "mid"}
-
-# default market caps pre-selected
-DEFAULT_MCAP = ["med", "large", "mega"]
+DEFAULT_MCAP       = ["med", "large", "mega"]
 
 # Initialize session state for mcap input
 if "mcap_input" not in st.session_state:
@@ -68,16 +67,16 @@ with top_left_cell:
     )
     st.session_state.mcap_input = MCAPS if MCAPS is not None else []
 
-# ============================================================
-# SECTOR SELECTION
-# ============================================================
 
+# SECTOR SELECTION
+# ================
 # List of all sectors
 sector_list = securityMaster['sector'].dropna().unique().tolist()
 
 # Default sectors pre-selected
 DEFAULT_SECTORS = [
-    "Technology", "Healthcare", "Financials", "Consumer Discretionary", "Industrials"
+    "Technology", "Healthcare", "Financials",
+    "Consumer Discretionary", "Industrials"
 ]
 
 # Initialize session state for sectors input
@@ -94,9 +93,9 @@ with top_left_cell:
         accept_new_options=True,
     )
 
-# ============================================================
+
 # TIME HORIZON SELECTION
-# ============================================================
+# ======================
 
 horizon_map = {
     "1 Year": "1y",
@@ -108,7 +107,6 @@ horizon_map = {
 # initialize session state for time horizon
 if "horizon" not in st.session_state:
     st.session_state.horizon = "5 Years"
-
 
 with top_left_cell:
     # Select data lookback period (1Y, 3Y, 5Y, 10Y)
@@ -142,6 +140,7 @@ COMPARISONS = ["<=", ">=", "<", ">", "=="]
 # Initialize session state for rules (persists across reruns)
 if "rules" not in st.session_state:
     st.session_state.rules = []
+    
 if "rules" not in st.session_state:
     st.session_state.rules = []
 
