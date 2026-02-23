@@ -13,7 +13,7 @@ from valueSeek.api import *
 from valueSeek.processor import *
 
 # ============================================================
-# APP TITLE
+# PAGE TITLE
 # ============================================================
 
 st.write("""
