@@ -124,7 +124,6 @@ fig_returns = create_comparison_plot(portfolios, CONFIG, "cumulative_returns")
 st.plotly_chart(fig_returns, use_container_width=True)
 
 
-
 # ============================================================
 # DEBUG SECTION
 # ============================================================

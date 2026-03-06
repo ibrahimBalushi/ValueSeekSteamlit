@@ -433,7 +433,7 @@ else:
 # ============================================================
 # DEBUG SECTION
 # ============================================================
-st.subheader("DEBUG ZONE: Collected Variable")
+st.subheader("DEBUG ZONE: Collected Rules Variable")
 st.json(st.session_state.sectors_input)
 st.json({"horizon": st.session_state.horizon})
 st.json(st.session_state.user_rules)
