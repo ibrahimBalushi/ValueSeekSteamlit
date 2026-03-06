@@ -29,7 +29,7 @@ Begin by selecting company profiles based on market cap and sector, then build c
 securityMaster = get_security_master()
 
 # ============================================================
-# MARKETCAP, SECTOR, AND HORIZON SELECTION
+# EXCHANGE, MARKETCAP, SECTOR, AND HORIZON SELECTION
 # ============================================================
 
 st.write("## Company Profile Selection")
@@ -41,6 +41,25 @@ def list_to_str(item_list):
 # Create a container for the top row of inputs (market cap, sector, horizon)
 top_left_cell = st.container(border=True)
 
+# EXCHANGE SELECTION
+# ===================
+exchange_list = securityMaster['exchange'].dropna().unique().tolist()
+
+#  default exchanges pre-selected
+DEFAULT_EXCHANGES = ["NASDAQ", "NYSE","TSX"]
+
+# Initialize session state for exchange input
+if "exchange_input" not in st.session_state:
+    st.session_state.exchange_input = DEFAULT_EXCHANGES
+
+with top_left_cell:
+    # Select data lookback period (1Y, 3Y, 5Y, 10Y)
+    exchange = st.pills(
+        "Exchange",
+        options=exchange_list,
+        default=st.session_state.exchange_input,
+        selection_mode="multi",
+    )
 
 # MARKETCAP SELECTION
 # ===================
@@ -66,7 +85,6 @@ with top_left_cell:
         selection_mode="multi",
     )
     st.session_state.mcap_input = MCAPS if MCAPS is not None else []
-
 
 # SECTOR SELECTION
 # ================
@@ -415,7 +433,7 @@ else:
 # ============================================================
 # DEBUG SECTION
 # ============================================================
-st.subheader("DEBUG ZONE: Collected Rules Variable")
+st.subheader("DEBUG ZONE: Collected Variable")
 st.json(st.session_state.sectors_input)
 st.json({"horizon": st.session_state.horizon})
 st.json(st.session_state.user_rules)
