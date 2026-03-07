@@ -2,12 +2,13 @@ import streamlit as st
 
 
 # Define the pages
-main_page = st.Page("MainPage.py", title="Main Page")
-page_2 = st.Page("StockScreener.py", title="Stock Screener")
-page_3 = st.Page("PortfolioOptimizer.py", title="Portfolio Optimizer")
+frontPage = st.Page("MainPage.py", title="Front Page")
+stockScreener = st.Page("StockScreener_beta.py", title="Stock Screener")
+valueAnsys = st.Page("ValuationAnalysis.py", title="Valuation Analysis")
+portOptimize = st.Page("PortfolioOptimizer.py", title="Portfolio Optimization Demo")
 
 # Set up navigation
-pg = st.navigation([main_page, page_2, page_3])
+pg = st.navigation([frontPage, stockScreener, valueAnsys, portOptimize])
 
 # Run the selected page
 pg.run()

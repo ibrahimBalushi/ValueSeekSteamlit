@@ -12,6 +12,9 @@ from valueSeek.config import *
 from valueSeek.api import *
 from valueSeek.processor import *
 
+
+st.set_page_config(layout="wide")
+
 # ============================================================
 # PAGE TITLE
 # ============================================================
@@ -42,7 +45,7 @@ def list_to_str(item_list):
 top_left_cell = st.container(border=True)
 
 # EXCHANGE SELECTION
-# ===================
+# ============================================================
 exchange_list = securityMaster['exchange'].dropna().unique().tolist()
 
 #  default exchanges pre-selected
@@ -62,7 +65,7 @@ with top_left_cell:
     )
 
 # MARKETCAP SELECTION
-# ===================
+# ============================================================
 MCAP_OPTIONS       = ["micro", "small", "med", "large", "mega"]
 MCAP_TO_DATA_VALUE = {"med": "mid"}
 DEFAULT_MCAP       = ["med", "large", "mega"]
@@ -87,7 +90,7 @@ with top_left_cell:
     st.session_state.mcap_input = MCAPS if MCAPS is not None else []
 
 # SECTOR SELECTION
-# ================
+# ============================================================
 # List of all sectors
 sector_list = securityMaster['sector'].dropna().unique().tolist()
 
@@ -113,7 +116,7 @@ with top_left_cell:
 
 
 # TIME HORIZON SELECTION
-# ======================
+# ============================================================
 
 horizon_map = {
     "1 Year": "1y",
@@ -141,8 +144,16 @@ with top_left_cell:
 st.write("## Metric Rule Builder")
 # Build custom filtering rules: choose metric, aggregation function, operator, and threshold
 
-# Available metrics for analysis
-METRICS = ["revenueGrowth","quickRatio"]
+# Available metrics for analysis - require to open csv in /valuescreen/valueSeek/CSV_files/valueSeek Project - FMP enrichment.csv
+df_metrics = pd.read_csv("/home/abrahim/Documents/GitHub/valuescreen/valueSeek/CSV_files/valueSeek Project - FMP enrichment.csv")
+df_metrics = df_metrics[['Metric Type','Formula','Metric varName']].set_index("Metric Type")
+
+# Create a mapping of metric categories to their respective metrics
+METRIC_CAT_MAP = df_metrics.groupby("Metric Type").apply(lambda x: dict(zip(x["Formula"], x["Metric varName"]))).to_dict()
+
+# DEBUG
+# st.write("METRIC_CAT_MAP sample:", dict(list(METRIC_CAT_MAP.items())[:2]))
+
 
 # Calculation mapping
 CALC_MAP = {
@@ -172,9 +183,17 @@ if "threshold_max" not in st.session_state:
 # ADD NEW RULE
 # ------------------------------------------------------------
 
+metric_types = list(METRIC_CAT_MAP.keys())
+default_type = metric_types[0]
+formulas = list(METRIC_CAT_MAP[default_type].keys())
+default_formula = formulas[0]
+default_metric = METRIC_CAT_MAP[default_type][default_formula]
+
 if st.button("➕ Add Rule"):
     st.session_state.rules.append({
-        "metric": METRICS[0],
+        "metric_type": default_type,
+        "metric_formula": default_formula,
+        "metric": default_metric,
         "calc_name": "mean",
         "comparison": "<",
         "threshold": 1.0
@@ -214,21 +233,38 @@ st.divider()
 # ============================================================
 # DISPLAY RULES UI
 # ============================================================
-# Render edit controls for each rule (metric, calc, operator, threshold, delete)
+# Render edit controls for each rule (type, formula, calc, operator, threshold, delete)
 for i, rule in enumerate(st.session_state.rules):
-    col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 0.5])
+    col_type, col_formula, col_calc, col_op, col_thresh, col_delete = st.columns([1.5, 1.5, 1, 1, 2, 0.5])
 
-    # Metric selection
-    with col1:
-        rule["metric"] = st.selectbox(
-            "Metric",
-            METRICS,
-            index=METRICS.index(rule["metric"]),
-            key=f"metric_{i}"
+    # Metric Type selection
+    with col_type:
+        current_type = rule.get("metric_type", default_type)
+        rule["metric_type"] = st.selectbox(
+            "Type",
+            metric_types,
+            index=metric_types.index(current_type),
+            key=f"type_{i}"
         )
 
+    # Metric Formula selection
+    with col_formula:
+        formulas = list(METRIC_CAT_MAP[rule["metric_type"]].keys())
+        current_formula = rule.get("metric_formula", formulas[0])
+        if current_formula not in formulas:
+            current_formula = formulas[0]
+        rule["metric_formula"] = st.selectbox(
+            "Metric",
+            formulas,
+            index=formulas.index(current_formula),
+            key=f"formula_{i}"
+        )
+
+    # Update metric
+    rule["metric"] = METRIC_CAT_MAP[rule["metric_type"]][rule["metric_formula"]]
+
     # Calculation selection
-    with col2:
+    with col_calc:
         rule["calc_name"] = st.selectbox(
             "Calc",
             list(CALC_MAP.keys()),
@@ -237,7 +273,7 @@ for i, rule in enumerate(st.session_state.rules):
         )
 
     # Comparison operator
-    with col3:
+    with col_op:
         rule["comparison"] = st.selectbox(
             "Operator",
             COMPARISONS,
@@ -251,7 +287,7 @@ for i, rule in enumerate(st.session_state.rules):
     step_val = 0.01
     current_threshold = float(rule["threshold"])
     current_threshold = min(max(current_threshold, min_val), max_val)
-    with col4:
+    with col_thresh:
         rule["threshold"] = st.slider(
             "Threshold",
             min_value=min_val,
@@ -262,7 +298,7 @@ for i, rule in enumerate(st.session_state.rules):
         )
 
     # Remove rule button
-    with col5:
+    with col_delete:
         if st.button("❌", key=f"remove_{i}"):
             st.session_state.rules.pop(i)
             st.rerun()
@@ -338,6 +374,11 @@ for rule in st.session_state.user_rules:
         }
     )
 
+# DEBUG
+# st.write("Required metrics:", sorted({source_col for source_col, _ in METRIC_AGG.values()}))
+
+st.write("## Screener Results")
+
 # Display data selection summary
 st.write("**Data Selection Info:**")
 st.write(f"- Date Range: {START_DATE.date()} to {END_DATE.date()}")
@@ -359,7 +400,10 @@ if tickers_ls and st.session_state.user_rules:
         )
         required_metrics = {source_col for source_col, _ in METRIC_AGG.values()}
         missing_metrics = sorted(required_metrics - set(ddf.columns))
+        # DEBUG
+        # st.write("Available columns in data (first 20):", sorted(list(ddf.columns))[:20])
         if missing_metrics:
+            st.write("Missing metrics:", missing_metrics)
             raise KeyError(
                 f"Missing metric columns in dataset: {missing_metrics}. "
                 f"Available columns: {list(ddf.columns)}"
@@ -422,6 +466,9 @@ if tickers_ls and st.session_state.user_rules:
 
         # Display results table
         st.success("Data loaded successfully!")
+
+        st.write(f"Tickers: {len(display_df)} companies found")
+
         st.write("### Filtered Results")
         st.dataframe(display_df, use_container_width=True)
 

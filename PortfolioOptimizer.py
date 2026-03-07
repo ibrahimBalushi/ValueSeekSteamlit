@@ -1,13 +1,10 @@
 # ============================================================
 # IMPORTS
 # ============================================================
-from datetime import datetime as dt
+
 import streamlit as st
 
 from skfolio.datasets import load_sp500_dataset
-from skfolio.preprocessing import prices_to_returns
-from skfolio.optimization import InverseVolatility, EqualWeighted, RiskBudgeting
-
 from valueSeek.backtesting import *
 
 # ============================================================
@@ -15,7 +12,7 @@ from valueSeek.backtesting import *
 # ============================================================
 
 st.write("""
-# ValueSeek Portfolio Optimizer
+# Portfolio Optimization Demo
 """)
 
 top_left_cell = st.container(border=True)
@@ -45,39 +42,8 @@ with top_left_cell:
     )
 
 # ============================================================
-# OPTIMIZATION STRATEGY SELECTOR
+# OPTIMIZATION TIME AND STRATEGY SELECTOR
 # ============================================================
-
-strategies = ["Equal Weighted", "Inverse Volatility", "Risk Budgeting"]
-
-rebalancing_map = {"Monthly": "ME", "Quarterly": "QE", "Annually": "YE"}
-
-# Initialize session state for strategy
-if "strategy_input" not in st.session_state:
-    st.session_state.strategy_input = "Equal Weighted"
-
-with top_left_cell:
-    # Multi-select pills for optimization strategy
-    STRATEGY = st.pills(
-        "Optimization Strategy",
-        options=strategies,
-        default=st.session_state.strategy_input,
-        selection_mode="multi",
-    )
-
-# Initialize session rebalancing frequency
-if "rebalancing_frequency" not in st.session_state:
-    st.session_state.rebalancing_frequency = "Quarterly"
-
-with top_left_cell:
-    # Single-select pills for rebalancing frequency
-    REBALANCING_FREQUENCY = st.pills(
-        "Rebalancing Frequency",
-        options=list(rebalancing_map.keys()),
-        default=st.session_state.rebalancing_frequency,
-        selection_mode="single",
-    )
-    REBALANCING_FREQUENCY = rebalancing_map[REBALANCING_FREQUENCY]
 
 # Initialize session START_DATE
 if "start_date" not in st.session_state:
@@ -98,22 +64,59 @@ if "end_date" not in st.session_state:
 END_DATE = st.date_input("Backtesting end date", 
                          value=st.session_state.end_date,
                          min_value="1995-01-01",
-                         max_value="2030-12-31",
+                         max_value="2099-12-31",
                          )
+
+# some key mappings
+strategies = [
+    "Equal Weighted", "Inverse Volatility", "Risk Budgeting"
+    ]
+COLOR_MAP = {
+    "Equal Weighted": "blue",
+    "Inverse Volatility": "red",
+    "Risk Budgeting": "green"
+}
+rebalancing_map = {"Monthly": "ME", "Quarterly": "QE", "Annually": "YE"}
+
+# Initialize session state for strategy
+if "strategy_input" not in st.session_state:
+    st.session_state.strategy_input = ["Equal Weighted", "Inverse Volatility"] 
+
+with top_left_cell:
+    # Multi-select pills for optimization strategy
+    STRATEGIES = st.pills(
+        "Optimization Strategy",
+        options=strategies,
+        default=st.session_state.strategy_input,
+        selection_mode="multi",
+    )
+
+# Initialize session rebalancing frequency
+if "rebalancing_frequency" not in st.session_state:
+    st.session_state.rebalancing_frequency = "Quarterly"
+
+with top_left_cell:
+    # Single-select pills for rebalancing frequency
+    REBALANCING_FREQUENCY = st.pills(
+        "Rebalancing Frequency",
+        options=list(rebalancing_map.keys()),
+        default=st.session_state.rebalancing_frequency,
+        selection_mode="single",
+    )
+    REBALANCING_FREQUENCY = rebalancing_map[REBALANCING_FREQUENCY]
+
 
 # ============================================================
 # RUN AND PLOT BACKTEST
 # ============================================================
 
+# # collect configuration variables into a single dict 
 CONFIG = {
         "stocks": STOCKS,
         "start_date": START_DATE,
         "end_date": END_DATE,
         "rebalance_frequency": REBALANCING_FREQUENCY,
-        "strategies": {
-            "Equal Weighted": {"color": "blue"},
-            "Inverse Volatility": {"color": "red"}
-        }
+        "strategies": dict(zip(STRATEGIES, [{"color": COLOR_MAP[strategy]} for strategy in STRATEGIES]))
     }
 
 # # fun methodology
@@ -121,8 +124,7 @@ portfolios, metrics = run_comparison_backtests(CONFIG)
 
 # # display results
 fig_returns = create_comparison_plot(portfolios, CONFIG, "cumulative_returns")
-st.plotly_chart(fig_returns, use_container_width=True)
-
+st.plotly_chart(fig_returns, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
 
 # ============================================================
 # DEBUG SECTION
