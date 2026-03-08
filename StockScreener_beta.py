@@ -13,6 +13,17 @@ from valueSeek.processor import *
 
 st.set_page_config(layout="wide")
 
+import streamlit as st
+
+# initialize state
+if "show_tutorial" not in st.session_state:
+    st.session_state.show_tutorial = False
+
+# button toggle
+if st.button("Activate / Deactivate Tutorial Mode"):
+    st.session_state.show_tutorial = not st.session_state.show_tutorial
+
+
 # ============================================================
 # CONSTANTS & CONFIGURATION
 # ============================================================
@@ -191,6 +202,64 @@ def prepare_display_df(df, security_master, metric_agg):
 st.write("# ValueSeek Fundamentals Company Screener")
 st.write("Select company profiles and build custom metric rules to filter for investment criteria.")
 
+st.markdown("""
+<style>
+
+/* Whole expander card */
+div[data-testid="stExpander"] {
+    border: none;
+    border-radius: 12px;
+    background-color: #0f172a;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.4);
+    margin-bottom: 10px;
+}
+
+/* Header */
+div[data-testid="stExpander"] summary {
+    font-size: 18px;
+    font-weight: 600;
+    background-color: #1e293b;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+}
+
+/* Hover effect */
+div[data-testid="stExpander"] summary:hover {
+    background-color: #334155;
+    cursor: pointer;
+}
+
+# /* Content area */
+# div[data-testid="stExpander"] details div {
+#     padding: 15px;
+#     background-color: #0f172a;
+#     border-radius: 0 0 12px 12px;
+# }
+
+</style>
+""", unsafe_allow_html=True)
+
+# show expanders only if enabled
+if st.session_state.show_tutorial:
+
+    with st.expander("📘 Step 1: Choose your Company Profile"):
+        st.write("Here you select the scope of companies you want to screen. You can filter by:\n\n- "
+        "**Stock Exchange**: Choose which stock exchanges to include (e.g. NYSE, NASDAQ, TSX).\n- "
+        "**Sector**: Select one or more sectors (e.g. Technology, Healthcare).\n- "
+        "**Market Capitalization**: Filter by company size (e.g. small, mid, large).\n- "
+        "**Time Horizon**: Determine the range of financial data used for metric calculations (e.g. last 5 years).")
+
+    with st.expander("📊 Step 2: Specify the Fundamental Ratios"):
+        st.write("Here you will build your custom metric rules. For each rule, you will select:\n\n- "
+        "**Metric Type**: Choose the category of financial metric (e.g. Growth, Profitability).\n- "
+        "**Metric**: Select the specific metric formula (e.g. Margins, ROE).\n- "
+        "**Calculation**: Decide how to aggregate the metric over time (e.g. min, mean, median).\n- "
+        "**Comparison Operator**: Choose how to compare the metric against a threshold (e.g. <, >, =).\n- **Threshold**: Corresponds to your desired value. The default is numbers between 0 and 1. This means starting at 0% to 100%")
+
+    with st.expander("🚀 Step 3: View Results!"):
+        st.write("A table will display all companies that meet your criteria, along with their sector, exhange, and the calculated metric values. You can sort and filter this table to explore the results further!")
+
 # Load data
 try:
     security_master = load_security_master()
@@ -206,21 +275,33 @@ init_session_state(available_sectors)
 # COMPANY PROFILE SELECTION
 # ============================================================
 
-st.write("## Company Profile Selection")
+st.write(f"## Company Profile Selection")
+
+# show expanders only if enabled
+if st.session_state.show_tutorial:
+
+    with st.expander("Click for tutorial"):
+        st.write("""
+        Use the filters below to select the scope of companies you want to screen. You can select multiple stock exchanges, sectors, and market capitalizations. The time horizon will determine the range of financial data used for metric calculations.
+        """)
 
 col1, col2 = st.columns(2)
 
 with col1:
     exchange_list = sorted(security_master['exchange'].dropna().unique().tolist())
     exchange_selection = st.multiselect(
-        "Exchange",
+        "Select the stock exchanges you want to include in your search:",
         options=exchange_list,
         key="exchange_input",
     )
+    # show expanders only if enabled
+    if st.session_state.show_tutorial:
+        with st.popover("Exchange full names :speech_balloon:"):
+            st.write("New York Stock Exchange (NYSE)\n\nToronto Stock Exchange (TSX)\n\n...")
 
 with col2:
     sector_selection = st.multiselect(
-        "Sector",
+        "Select all sectors you want to include in your search:",
         options=available_sectors,
         key="sectors_input",
     )
@@ -229,18 +310,26 @@ col3, col4 = st.columns(2)
 
 with col3:
     mcap_selection = st.pills(
-        "Market Cap",
+        "Select the size (marketcap) of companies you want to include in your search:",
         options=MCAP_OPTIONS,
         selection_mode="multi",
         key="mcap_input",
     )
+    # show expanders only if enabled
+    if st.session_state.show_tutorial:
+        with st.popover("Explain marketcap options :speech_balloon:"):
+            st.write("Micro are ____,\n\nsmall are _____ \n\n....")
 
 with col4:
     horizon_selection = st.pills(
-        "Time Horizon",
+        "Select the time horizon your calculations (min,max,medium and mean) will be based on (most recent years):",
         options=list(HORIZON_MAP.keys()),
         key="horizon",
     )
+    # show expanders only if enabled
+    if st.session_state.show_tutorial:
+        with st.popover("Give me an example :speech_balloon:"):
+            st.write("....")
 
 # ============================================================
 # METRIC RULE BUILDER
